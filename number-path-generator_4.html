@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Number Path — Puzzle Generator</title>
+<style>
+  :root{
+    --bg: #EAF6FF;
+    --card: #FFFFFF;
+    --given: #FFB347;
+    --given-dark: #E8912A;
+    --op: #FFD966;
+    --op-dark: #E0B93F;
+    --blank-border: #FF6B6B;
+    --ink: #2B2B44;
+    --teal: #2EC4B6;
+    --teal-dark: #1FA79A;
+    --purple: #9B7FE0;
+    --purple-dark: #7C5FC2;
+    --grey: #5B5B7A;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--bg);
+    font-family: -apple-system, "Segoe UI Rounded", "Segoe UI", Verdana, sans-serif;
+    color: var(--ink);
+  }
+  body {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+    padding: 20px 14px 50px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  header { text-align:center; margin-bottom: 10px; }
+  .mascot { font-size: 40px; line-height:1; }
+  h1 { font-size: 24px; margin: 6px 0 2px; }
+  .sub { font-size: 14px; color: var(--grey); margin: 0; }
+
+  .mode-group {
+    display:flex; gap:6px; background:#fff; padding:5px; border-radius:14px;
+    box-shadow: 0 2px 6px rgba(43,43,68,0.08); max-width: 480px; margin: 16px auto 0;
+  }
+  .mode-btn {
+    flex:1; border:none; background:transparent; padding:12px 10px; border-radius:10px;
+    font-weight:800; font-size:14px; color:var(--grey); cursor:pointer; text-align:center;
+  }
+  .mode-btn .chip {
+    display:inline-block; font-size:11px; padding:2px 7px; border-radius:8px; margin-left:6px;
+    background:#eee; color:#666; font-weight:800;
+  }
+  .mode-btn.active[data-mode="addsub"] { background: var(--teal); color:#fff; }
+  .mode-btn.active[data-mode="allops"] { background: var(--purple); color:#fff; }
+  .mode-btn.active .chip { background: rgba(255,255,255,0.25); color:#fff; }
+
+  .controls {
+    display:flex; flex-wrap: wrap; gap: 10px; justify-content:center; align-items:center;
+    margin: 14px 0 6px;
+  }
+  .diff-group {
+    display:flex; gap: 6px; background: #fff; padding: 5px; border-radius: 14px;
+    box-shadow: 0 2px 6px rgba(43,43,68,0.08);
+  }
+  .diff-btn {
+    border: none; background: transparent; padding: 9px 14px; border-radius: 10px;
+    font-weight: 800; font-size: 14px; color: var(--grey); cursor: pointer;
+  }
+  .diff-btn.active { background: var(--ink); color: #fff; }
+
+  .action-btn {
+    border: none; padding: 11px 18px; border-radius: 12px; font-weight: 800; font-size: 14px;
+    cursor: pointer; border-bottom: 3px solid rgba(0,0,0,0.15); display:flex; align-items:center; gap:6px;
+  }
+  .action-btn.new { background: #6BCB77; color:#fff; }
+  .action-btn.print { background: var(--ink); color:#fff; }
+
+  .hint { text-align:center; font-size: 12.5px; color: var(--grey); margin-bottom: 4px; }
+  kbd {
+    background:#fff; border:1px solid #cfd8e8; border-bottom-width:2px;
+    border-radius:5px; padding:1px 6px; font-size:12px; font-weight:700;
+  }
+
+  .sheet {
+    background: var(--card); border-radius: 18px;
+    box-shadow: 0 6px 0 rgba(43,43,68,0.08), 0 2px 10px rgba(43,43,68,0.10);
+    padding: 22px 14px 20px; margin-top: 14px;
+  }
+  .sheet-header { text-align:center; margin-bottom: 10px; }
+  .sheet-title { font-size: 20px; font-weight: 800; margin:0; }
+  .sheet-puzzle { font-size: 14px; font-weight: 800; margin: 2px 0; }
+  .sheet-puzzle.addsub { color: var(--teal-dark); }
+  .sheet-puzzle.allops { color: var(--purple-dark); }
+  .sheet-instructions { font-size: 11.5px; color: var(--grey); margin:0; }
+
+  #grid { display: grid; gap: 0.05in; justify-content: center; margin: 0 auto; }
+  .cell {
+    display:flex; align-items:center; justify-content:center; font-weight: 800;
+    border-radius: 10px; position: relative;
+  }
+  .cell.empty { visibility:hidden; }
+  .cell.given { background: var(--given); color:#fff; border-bottom: 3px solid var(--given-dark); }
+  .cell.op { background: var(--op); color:#7A5A00; border-bottom: 3px solid var(--op-dark); }
+  .cell.blank { background:#fff; border: 3px dashed var(--blank-border); color: var(--ink); }
+  .cell.blank .label { position:absolute; top:3px; left:6px; font-size:0.28em; font-weight:800; }
+
+  .footer-note { text-align:center; font-size:11px; color:var(--grey); margin-top:14px; }
+
+  .answer-toggle { text-align:center; margin-top:16px; }
+  .answer-toggle button {
+    background:none; border:none; color:var(--teal-dark); font-weight:700; font-size:13px;
+    cursor:pointer; text-decoration:underline;
+  }
+  #answerKey {
+    display:none; text-align:center; margin-top:8px; font-size:14px; color:var(--ink);
+    background:#F3FBF9; border-radius:10px; padding:10px; font-weight:700;
+  }
+
+  @media print {
+    body { background: #fff !important; padding:0; }
+    .no-print { display:none !important; }
+    .sheet { box-shadow:none; border-radius:0; padding:0; margin:0; }
+    #answerKey { display:none !important; }
+    @page { size: letter; margin: 0.5in; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="no-print">
+    <div class="mascot">🦉</div>
+    <h1>The Number Path</h1>
+    <p class="sub">Pick a track and a level, make a puzzle, print it.</p>
+  </header>
+
+  <div class="mode-group no-print" id="modeGroup">
+    <button class="mode-btn" data-mode="addsub">Addition &amp; Subtraction <span class="chip">up to 50</span></button>
+    <button class="mode-btn" data-mode="allops">All Operations <span class="chip">up to 120</span></button>
+  </div>
+
+  <div class="controls no-print">
+    <div class="diff-group" id="diffGroup">
+      <button class="diff-btn" data-level="easy">Easy</button>
+      <button class="diff-btn" data-level="medium">Medium</button>
+      <button class="diff-btn" data-level="hard">Hard</button>
+      <button class="diff-btn" data-level="challenging">Challenging</button>
+    </div>
+  </div>
+  <div class="controls no-print">
+    <button class="action-btn new" id="newBtn">🎲 New Puzzle</button>
+    <button class="action-btn print" id="printBtn">🖨️ Print</button>
+  </div>
+  <p class="hint no-print">Press <kbd>N</kbd> or <kbd>Space</kbd> for a new puzzle at the same level.</p>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-header">
+      <p class="sheet-title">The Number Path</p>
+      <p class="sheet-puzzle addsub" id="puzzleLabel">Puzzle #1 · Easy · Addition &amp; Subtraction</p>
+      <p class="sheet-instructions" id="instructions">Solve each box using + and −. Write your answer inside the dashed box.</p>
+    </div>
+    <div id="grid"></div>
+  </div>
+
+  <div class="answer-toggle no-print">
+    <button id="answerBtn">Show answer key (for grown-ups)</button>
+  </div>
+  <div id="answerKey"></div>
+
+  <p class="footer-note no-print">Every puzzle is checked by the computer before it's shown — the math always works out.</p>
+</div>
+
+<script>
+// ============================================================
+// Level configs. Both tracks share one generator; the only
+// difference is which operators are allowed and how big the
+// numbers are allowed to get.
+// ============================================================
+const LEVELS = {
+  addsub: {
+    easy:        { tiers: 0, hi: 15, seedLo: 3, seedHi: 8,  addLo: 2, addHi: 6,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    medium:      { tiers: 1, hi: 26, seedLo: 3, seedHi: 9,  addLo: 2, addHi: 7,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    hard:        { tiers: 2, hi: 40, seedLo: 3, seedHi: 9,  addLo: 2, addHi: 9,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    challenging: { tiers: 2, hi: 50, seedLo: 4, seedHi: 11, addLo: 2, addHi: 12, factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+  },
+  allops: {
+    easy:        { tiers: 0, hi: 30, seedLo: 3, seedHi: 10, addLo: 2, addHi: 8,  factorLo: 2, factorHi: 5,  ops: ['+','+','+','-','-','-','\u00d7','\u00f7'] },
+    medium:      { tiers: 1, hi: 60, seedLo: 4, seedHi: 12, addLo: 2, addHi: 10, factorLo: 2, factorHi: 8,  ops: ['+','-','\u00d7','\u00f7'] },
+    hard:        { tiers: 2, hi: 90, seedLo: 4, seedHi: 14, addLo: 3, addHi: 12, factorLo: 2, factorHi: 10, ops: ['+','-','\u00d7','\u00f7'] },
+    challenging: { tiers: 2, hi: 120, seedLo: 5, seedHi: 16, addLo: 3, addHi: 14, factorLo: 2, factorHi: 12, ops: ['+','-','\u00d7','\u00f7'] },
+  },
+};
+const LEVEL_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', challenging: 'Challenging' };
+const MODE_LABELS = { addsub: 'Addition & Subtraction', allops: 'All Operations' };
+const MODE_INSTRUCTIONS = {
+  addsub: 'Solve each box using + and \u2212. Write your answer inside the dashed box.',
+  allops: 'Solve each box using +, \u2212, \u00d7, or \u00f7. Write your answer inside the dashed box.',
+};
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+let currentMode = 'addsub';
+let currentLevel = 'easy';
+let puzzleCount = 0;
+
+function randInt(lo, hi) { return Math.floor(Math.random() * (hi - lo + 1)) + lo; }
+function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function key(r, c) { return r + ',' + c; }
+function divisorsOf(n, lo, hi) {
+  const out = [];
+  for (let d = lo; d <= hi; d++) if (n % d === 0) out.push(d);
+  return out;
+}
+
+// ------------------------------------------------------------
+// attemptRun: given which of A/B/C are already fixed (numbers)
+// and which are null (free / to be chosen), tries every allowed
+// operator (in random order) and returns {a,b,c,op} on success,
+// or null if nothing in the allowed op set can satisfy the
+// range constraints for this run.
+// ------------------------------------------------------------
+function attemptRun(ownedIdx, aFixed, bFixed, cFixed, cfg) {
+  const lo = 1;
+  const { hi, seedLo, seedHi, addLo, addHi, factorLo, factorHi, ops } = cfg;
+  const opsShuffled = shuffle(ops);
+
+  if (ownedIdx === 2) {
+    for (const op of opsShuffled) {
+      let a = aFixed, b = bFixed, c = null;
+      if (op === '+') {
+        if (a === null && b === null) { a = randInt(seedLo, seedHi); b = randInt(seedLo, seedHi); }
+        else if (a === null) { a = randInt(addLo, addHi); }
+        else if (b === null) { b = randInt(addLo, addHi); }
+        c = a + b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '-') {
+        if (a === null && b === null) {
+          a = randInt(Math.max(seedLo, lo + addLo), seedHi);
+          const bHi = Math.min(addHi, a - lo);
+          if (bHi < addLo) continue;
+          b = randInt(addLo, bHi);
+        } else if (a === null) {
+          const aLo = Math.max(seedLo, b + lo);
+          const aHi = b + hi;
+          if (aLo > aHi) continue;
+          a = randInt(aLo, Math.min(aHi, seedHi + hi));
+        } else if (b === null) {
+          const bHi = Math.min(addHi, a - lo);
+          if (bHi < addLo) continue;
+          b = randInt(addLo, bHi);
+        }
+        c = a - b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '\u00d7') {
+        if (a === null && b === null) { a = randInt(factorLo, factorHi); b = randInt(factorLo, factorHi); }
+        else if (a === null) { a = randInt(factorLo, factorHi); }
+        else if (b === null) { b = randInt(factorLo, factorHi); }
+        c = a * b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '\u00f7') {
+        if (a === null && b === null) {
+          b = randInt(factorLo, factorHi);
+          const q = randInt(factorLo, factorHi);
+          a = b * q;
+          c = q;
+        } else if (a === null) {
+          const q = randInt(factorLo, factorHi);
+          a = b * q;
+          c = q;
+        } else if (b === null) {
+          const divs = divisorsOf(a, factorLo, Math.min(factorHi, a));
+          if (divs.length === 0) continue;
+          b = choice(divs);
+          c = a / b;
+        }
+        if (a === 0 || c === null || c < lo || c > hi || a > hi) continue;
+      }
+      if (a === null || b === null || c === null) continue;
+      if (a < lo || a > Math.max(hi, seedHi) ) continue;
+      if (b < lo) continue;
+      return { a, b, c, op };
+    }
+    return null;
+  }
+
+  if (ownedIdx === 1) {
+    const a = aFixed, c = cFixed;
+    for (const op of opsShuffled) {
+      let b = null;
+      if (op === '+') { b = c - a; }
+      else if (op === '-') { b = a - c; }
+      else if (op === '\u00d7') { if (a !== 0 && c % a === 0) b = c / a; }
+      else if (op === '\u00f7') { if (c !== 0 && a % c === 0) b = a / c; }
+      if (b === null || b < 1 || b > hi) continue;
+      return { a, b, c, op };
+    }
+    return null;
+  }
+  return null;
+}
+
+function tryBuild(cfg) {
+  const values = {};
+  const ops = {};
+  const owned = new Set();
+  let ok = true;
+
+  function processRun(cells, ownedIdx) {
+    if (!ok) return;
+    const [A, opc, B, eqc, C] = cells;
+    ops[key(...eqc)] = '=';
+    const kA = key(...A), kB = key(...B), kC = key(...C);
+    const aFixed = (kA in values) ? values[kA] : null;
+    const bFixed = (kB in values) ? values[kB] : null;
+    const cFixed = (kC in values) ? values[kC] : null;
+    const res = attemptRun(ownedIdx, aFixed, bFixed, cFixed, cfg);
+    if (!res) { ok = false; return; }
+    values[kA] = res.a; values[kB] = res.b; values[kC] = res.c;
+    ops[key(...opc)] = res.op;
+    if (ownedIdx === 2) owned.add(kC);
+    else owned.add(kB);
+  }
+
+  const row = 0;
+  const top = [[row,3],[row,4],[row,5],[row,6],[row,7]];
+  processRun(top, 2);
+  if (!ok) return null;
+  let lanes = [3, 7];
+  let curRow = 0;
+
+  for (let t = 0; t < cfg.tiers; t++) {
+    const nextRow = curRow + 4;
+    for (const col of lanes) {
+      const vcells = [[curRow,col],[curRow+1,col],[curRow+2,col],[curRow+3,col],[nextRow,col]];
+      processRun(vcells, 2);
+      if (!ok) return null;
+    }
+    let curA = lanes[0] - 2;
+    const newLanes = [curA];
+    for (const lc of lanes) {
+      const cells = [[nextRow,curA],[nextRow,curA+1],[nextRow,lc],[nextRow,lc+1],[nextRow,lc+2]];
+      processRun(cells, 2);
+      if (!ok) return null;
+      curA = lc + 2;
+      newLanes.push(curA);
+    }
+    lanes = newLanes;
+    curRow = nextRow;
+  }
+
+  const nextRow = curRow + 4;
+  for (const col of lanes) {
+    const vcells = [[curRow,col],[curRow+1,col],[curRow+2,col],[curRow+3,col],[nextRow,col]];
+    processRun(vcells, 2);
+    if (!ok) return null;
+  }
+  for (let i = 0; i < lanes.length - 1; i++) {
+    const aCol = lanes[i], cCol = lanes[i+1];
+    const cells = [[nextRow,aCol],[nextRow,aCol+1],[nextRow,aCol+2],[nextRow,aCol+3],[nextRow,cCol]];
+    processRun(cells, 1);
+    if (!ok) return null;
+  }
+
+  return { values, ops, owned };
+}
+
+function finalizeGrid(values, ops, owned, transpose) {
+  const coordsSet = new Set([...Object.keys(values), ...Object.keys(ops)]);
+  const parse = (k) => k.split(',').map(Number);
+  let pts = [...coordsSet].map(parse);
+  const tf = ([r,c]) => transpose ? [c,r] : [r,c];
+  pts = pts.map(tf);
+
+  const newValues = {}, newOps = {}, newOwned = new Set();
+  for (const k in values) { const [r,c] = tf(parse(k)); newValues[key(r,c)] = values[k]; }
+  for (const k in ops) { const [r,c] = tf(parse(k)); newOps[key(r,c)] = ops[k]; }
+  owned.forEach(k => { const [r,c] = tf(parse(k)); newOwned.add(key(r,c)); });
+
+  const minR = Math.min(...pts.map(p=>p[0])), maxR = Math.max(...pts.map(p=>p[0]));
+  const minC = Math.min(...pts.map(p=>p[1])), maxC = Math.max(...pts.map(p=>p[1]));
+  const rows = maxR - minR + 1, cols = maxC - minC + 1;
+
+  const grid = Array.from({length: rows}, () => Array.from({length: cols}, () => ({type:'empty'})));
+  for (const k in newValues) {
+    const [r,c] = parse(k);
+    const rr = r - minR, cc = c - minC;
+    grid[rr][cc] = { type: newOwned.has(k) ? 'blank' : 'given', val: newValues[k] };
+  }
+  for (const k in newOps) {
+    const [r,c] = parse(k);
+    const rr = r - minR, cc = c - minC;
+    grid[rr][cc] = { type: 'op', val: newOps[k] };
+  }
+
+  let li = 0;
+  const answers = [];
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell.type === 'blank') {
+        cell.label = LETTERS[li];
+        answers.push([LETTERS[li], cell.val]);
+        li++;
+      }
+    }
+  }
+  return { grid, answers };
+}
+
+function opResult(a, op, b) {
+  if (op === '+') return a + b;
+  if (op === '-') return a - b;
+  if (op === '\u00d7') return a * b;
+  if (op === '\u00f7') return a / b;
+  return null;
+}
+
+function verifyGrid(grid) {
+  const rows = grid.length, cols = grid[0].length;
+  const isVal = (cell) => cell.type === 'given' || cell.type === 'blank';
+  let ok = true;
+  const checkLine = (cells) => {
+    if (isVal(cells[0]) && cells[1].type === 'op' && '+-\u00d7\u00f7'.includes(cells[1].val)
+        && isVal(cells[2]) && cells[3].type === 'op' && cells[3].val === '='
+        && isVal(cells[4])) {
+      if (opResult(cells[0].val, cells[1].val, cells[2].val) !== cells[4].val) ok = false;
+    }
+  };
+  for (let r=0;r<rows;r++) for (let c=0;c+4<cols;c++)
+    checkLine([grid[r][c],grid[r][c+1],grid[r][c+2],grid[r][c+3],grid[r][c+4]]);
+  for (let c=0;c<cols;c++) for (let r=0;r+4<rows;r++)
+    checkLine([grid[r][c],grid[r+1][c],grid[r+2][c],grid[r+3][c],grid[r+4][c]]);
+  return ok;
+}
+
+function generatePuzzle(mode, levelKey) {
+  const cfg = LEVELS[mode][levelKey];
+  const transpose = Math.random() < 0.35;
+  for (let attempt = 0; attempt < 800; attempt++) {
+    const built = tryBuild(cfg);
+    if (!built) continue;
+    const { grid, answers } = finalizeGrid(built.values, built.ops, built.owned, transpose);
+    if (verifyGrid(grid)) return { grid, answers };
+  }
+  throw new Error('Could not generate a puzzle — try again.');
+}
+
+function renderGrid(grid) {
+  const gridEl = document.getElementById('grid');
+  const rows = grid.length, cols = grid[0].length;
+  const availW = 7.2, availH = 8.6, maxCell = 0.9;
+  const size = Math.min(availW / cols, availH / rows, maxCell);
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${size}in)`;
+  gridEl.style.gridTemplateRows = `repeat(${rows}, ${size}in)`;
+  gridEl.innerHTML = '';
+  for (const row of grid) {
+    for (const cell of row) {
+      const div = document.createElement('div');
+      div.style.fontSize = (size * 0.40) + 'in';
+      if (cell.type === 'empty') { div.className = 'cell empty'; }
+      else if (cell.type === 'given') { div.className = 'cell given'; div.textContent = cell.val; }
+      else if (cell.type === 'op') { div.className = 'cell op'; div.textContent = cell.val; }
+      else if (cell.type === 'blank') {
+        div.className = 'cell blank';
+        const lab = document.createElement('span');
+        lab.className = 'label'; lab.textContent = cell.label;
+        div.appendChild(lab);
+      }
+      gridEl.appendChild(div);
+    }
+  }
+}
+
+function newPuzzle() {
+  puzzleCount++;
+  const { grid, answers } = generatePuzzle(currentMode, currentLevel);
+  renderGrid(grid);
+  const label = document.getElementById('puzzleLabel');
+  label.textContent = `Puzzle #${puzzleCount} · ${LEVEL_LABELS[currentLevel]} · ${MODE_LABELS[currentMode]}`;
+  label.className = 'sheet-puzzle ' + currentMode;
+  document.getElementById('instructions').textContent = MODE_INSTRUCTIONS[currentMode];
+  const ansEl = document.getElementById('answerKey');
+  ansEl.innerHTML = answers.map(([l,v]) => `${l}=${v}`).join('   ');
+  ansEl.style.display = 'none';
+  document.getElementById('answerBtn').textContent = 'Show answer key (for grown-ups)';
+}
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    currentLevel = 'easy';
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.diff-btn[data-level="easy"]').classList.add('active');
+    puzzleCount = 0;
+    newPuzzle();
+  });
+});
+document.querySelector('.mode-btn[data-mode="addsub"]').classList.add('active');
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+    puzzleCount = 0;
+    newPuzzle();
+  });
+});
+document.querySelector('.diff-btn[data-level="easy"]').classList.add('active');
+
+document.getElementById('newBtn').addEventListener('click', newPuzzle);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+document.getElementById('answerBtn').addEventListener('click', () => {
+  const ansEl = document.getElementById('answerKey');
+  const showing = ansEl.style.display === 'block';
+  ansEl.style.display = showing ? 'none' : 'block';
+  document.getElementById('answerBtn').textContent =
+    showing ? 'Show answer key (for grown-ups)' : 'Hide answer key';
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'n' || e.key === 'N' || e.code === 'Space') {
+    e.preventDefault();
+    newPuzzle();
+  }
+});
+
+newPuzzle();
+</script>
+</body>
+</html>
