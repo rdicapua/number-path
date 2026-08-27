@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Number Path — Puzzle Generator</title>
+<style>
+  :root{
+    --bg: #EAF6FF;
+    --card: #FFFFFF;
+    --given: #FFB347;
+    --given-dark: #E8912A;
+    --op: #FFD966;
+    --op-dark: #E0B93F;
+    --blank-border: #FF6B6B;
+    --ink: #2B2B44;
+    --teal: #2EC4B6;
+    --teal-dark: #1FA79A;
+    --purple: #9B7FE0;
+    --purple-dark: #7C5FC2;
+    --grey: #5B5B7A;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--bg);
+    font-family: -apple-system, "Segoe UI Rounded", "Segoe UI", Verdana, sans-serif;
+    color: var(--ink);
+  }
+  body {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+    padding: 20px 14px 50px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  header { text-align:center; margin-bottom: 10px; }
+  .mascot { font-size: 40px; line-height:1; }
+  h1 { font-size: 24px; margin: 6px 0 2px; }
+  .sub { font-size: 14px; color: var(--grey); margin: 0; }
+
+  .mode-group {
+    display:flex; gap:6px; background:#fff; padding:5px; border-radius:14px;
+    box-shadow: 0 2px 6px rgba(43,43,68,0.08); max-width: 480px; margin: 16px auto 0;
+  }
+  .mode-btn {
+    flex:1; border:none; background:transparent; padding:12px 10px; border-radius:10px;
+    font-weight:800; font-size:14px; color:var(--grey); cursor:pointer; text-align:center;
+  }
+  .mode-btn .chip {
+    display:inline-block; font-size:11px; padding:2px 7px; border-radius:8px; margin-left:6px;
+    background:#eee; color:#666; font-weight:800;
+  }
+  .mode-btn.active[data-mode="addsub"] { background: var(--teal); color:#fff; }
+  .mode-btn.active[data-mode="allops"] { background: var(--purple); color:#fff; }
+  .mode-btn.active .chip { background: rgba(255,255,255,0.25); color:#fff; }
+
+  .controls {
+    display:flex; flex-wrap: wrap; gap: 10px; justify-content:center; align-items:center;
+    margin: 14px 0 6px;
+  }
+  .diff-group {
+    display:flex; gap: 6px; background: #fff; padding: 5px; border-radius: 14px;
+    box-shadow: 0 2px 6px rgba(43,43,68,0.08);
+  }
+  .diff-btn {
+    border: none; background: transparent; padding: 9px 14px; border-radius: 10px;
+    font-weight: 800; font-size: 14px; color: var(--grey); cursor: pointer;
+  }
+  .diff-btn.active { background: var(--ink); color: #fff; }
+
+  .action-btn {
+    border: none; padding: 11px 18px; border-radius: 12px; font-weight: 800; font-size: 14px;
+    cursor: pointer; border-bottom: 3px solid rgba(0,0,0,0.15); display:flex; align-items:center; gap:6px;
+  }
+  .action-btn.new { background: #6BCB77; color:#fff; }
+  .action-btn.print { background: var(--ink); color:#fff; }
+
+  .hint { text-align:center; font-size: 12.5px; color: var(--grey); margin-bottom: 4px; }
+  kbd {
+    background:#fff; border:1px solid #cfd8e8; border-bottom-width:2px;
+    border-radius:5px; padding:1px 6px; font-size:12px; font-weight:700;
+  }
+
+  .sheet {
+    background: var(--card); border-radius: 18px;
+    box-shadow: 0 6px 0 rgba(43,43,68,0.08), 0 2px 10px rgba(43,43,68,0.10);
+    padding: 22px 14px 20px; margin-top: 14px;
+  }
+  .sheet-header { text-align:center; margin-bottom: 10px; }
+  .sheet-title { font-size: 20px; font-weight: 800; margin:0; }
+  .sheet-puzzle { font-size: 14px; font-weight: 800; margin: 2px 0; }
+  .sheet-puzzle.addsub { color: var(--teal-dark); }
+  .sheet-puzzle.allops { color: var(--purple-dark); }
+  .sheet-instructions { font-size: 11.5px; color: var(--grey); margin:0; }
+
+  #grid { display: grid; gap: 0.05in; justify-content: center; margin: 0 auto; }
+  .cell {
+    display:flex; align-items:center; justify-content:center; font-weight: 800;
+    border-radius: 10px; position: relative;
+  }
+  .cell.empty { visibility:hidden; }
+  .cell.given { background: var(--given); color:#fff; border-bottom: 3px solid var(--given-dark); }
+  .cell.op { background: var(--op); color:#7A5A00; border-bottom: 3px solid var(--op-dark); }
+  .cell.blank { background:#fff; border: 3px dashed var(--blank-border); color: var(--ink); }
+  .cell.blank .label { position:absolute; top:3px; left:6px; font-size:0.28em; font-weight:800; }
+
+  .footer-note { text-align:center; font-size:11px; color:var(--grey); margin-top:14px; }
+
+  .answer-toggle { text-align:center; margin-top:16px; }
+  .answer-toggle button {
+    background:none; border:none; color:var(--teal-dark); font-weight:700; font-size:13px;
+    cursor:pointer; text-decoration:underline;
+  }
+  #answerKey {
+    display:none; text-align:center; margin-top:8px; font-size:14px; color:var(--ink);
+    background:#F3FBF9; border-radius:10px; padding:10px; font-weight:700;
+  }
+
+  @media print {
+    body { background: #fff !important; padding:0; }
+    .no-print { display:none !important; }
+    .sheet { box-shadow:none; border-radius:0; padding:0; margin:0; }
+    #answerKey { display:none !important; }
+    @page { size: letter; margin: 0.5in; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="no-print">
+    <div class="mascot">
+      <img src="data:image/png;base64,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" width="40" height="40" alt="Mandelbrot fractal" style="display:block;margin:0 auto;border-radius:8px;">
+    </div>
+    <h1>The Number Path</h1>
+    <p class="sub">by Riccardo</p>
+    <p class="sub">Pick a track and a level, make a puzzle, print it.</p>
+  </header>
+
+  <div class="mode-group no-print" id="modeGroup">
+    <button class="mode-btn" data-mode="addsub">Addition &amp; Subtraction <span class="chip">up to 50</span></button>
+    <button class="mode-btn" data-mode="allops">All Operations <span class="chip">up to 120</span></button>
+  </div>
+
+  <div class="controls no-print">
+    <div class="diff-group" id="diffGroup">
+      <button class="diff-btn" data-level="easy">Easy</button>
+      <button class="diff-btn" data-level="medium">Medium</button>
+      <button class="diff-btn" data-level="hard">Hard</button>
+      <button class="diff-btn" data-level="challenging">Challenging</button>
+    </div>
+  </div>
+  <div class="controls no-print">
+    <button class="action-btn new" id="newBtn">🎲 New Puzzle</button>
+    <button class="action-btn print" id="printBtn">🖨️ Print</button>
+  </div>
+  <p class="hint no-print">Press <kbd>N</kbd> or <kbd>Space</kbd> for a new puzzle at the same level.</p>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-header">
+      <p class="sheet-title">The Number Path</p>
+      <p class="sheet-puzzle addsub" id="puzzleLabel">Puzzle #1 · Easy · Addition &amp; Subtraction</p>
+      <p class="sheet-instructions" id="instructions">Solve each box using + and −. Write your answer inside the dashed box.</p>
+    </div>
+    <div id="grid"></div>
+  </div>
+
+  <div class="answer-toggle no-print">
+    <button id="answerBtn">Show answer key (for grown-ups)</button>
+  </div>
+  <div id="answerKey"></div>
+
+  <p class="footer-note no-print">Every puzzle is checked by the computer before it's shown — the math always works out.</p>
+</div>
+
+<script>
+// ============================================================
+// Level configs. Both tracks share one generator; the only
+// difference is which operators are allowed and how big the
+// numbers are allowed to get.
+// ============================================================
+const LEVELS = {
+  addsub: {
+    easy:        { tiers: 0, hi: 15, seedLo: 3, seedHi: 8,  addLo: 2, addHi: 6,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    medium:      { tiers: 1, hi: 26, seedLo: 3, seedHi: 9,  addLo: 2, addHi: 7,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    hard:        { tiers: 2, hi: 40, seedLo: 3, seedHi: 9,  addLo: 2, addHi: 9,  factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+    challenging: { tiers: 2, hi: 50, seedLo: 4, seedHi: 11, addLo: 2, addHi: 12, factorLo: 2, factorHi: 4,  ops: ['+','-'] },
+  },
+  allops: {
+    easy:        { tiers: 0, hi: 30, seedLo: 3, seedHi: 10, addLo: 2, addHi: 8,  factorLo: 2, factorHi: 5,  ops: ['+','+','+','-','-','-','\u00d7','\u00f7'] },
+    medium:      { tiers: 1, hi: 60, seedLo: 4, seedHi: 12, addLo: 2, addHi: 10, factorLo: 2, factorHi: 8,  ops: ['+','-','\u00d7','\u00f7'] },
+    hard:        { tiers: 2, hi: 90, seedLo: 4, seedHi: 14, addLo: 3, addHi: 12, factorLo: 2, factorHi: 10, ops: ['+','-','\u00d7','\u00f7'] },
+    challenging: { tiers: 2, hi: 120, seedLo: 5, seedHi: 16, addLo: 3, addHi: 14, factorLo: 2, factorHi: 12, ops: ['+','-','\u00d7','\u00f7'] },
+  },
+};
+const LEVEL_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', challenging: 'Challenging' };
+const MODE_LABELS = { addsub: 'Addition & Subtraction', allops: 'All Operations' };
+const MODE_INSTRUCTIONS = {
+  addsub: 'Solve each box using + and \u2212. Write your answer inside the dashed box.',
+  allops: 'Solve each box using +, \u2212, \u00d7, or \u00f7. Write your answer inside the dashed box.',
+};
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+let currentMode = 'addsub';
+let currentLevel = 'easy';
+let puzzleCount = 0;
+
+function randInt(lo, hi) { return Math.floor(Math.random() * (hi - lo + 1)) + lo; }
+function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function key(r, c) { return r + ',' + c; }
+function divisorsOf(n, lo, hi) {
+  const out = [];
+  for (let d = lo; d <= hi; d++) if (n % d === 0) out.push(d);
+  return out;
+}
+
+// ------------------------------------------------------------
+// attemptRun: given which of A/B/C are already fixed (numbers)
+// and which are null (free / to be chosen), tries every allowed
+// operator (in random order) and returns {a,b,c,op} on success,
+// or null if nothing in the allowed op set can satisfy the
+// range constraints for this run.
+// ------------------------------------------------------------
+function attemptRun(ownedIdx, aFixed, bFixed, cFixed, cfg) {
+  const lo = 1;
+  const { hi, seedLo, seedHi, addLo, addHi, factorLo, factorHi, ops } = cfg;
+  const opsShuffled = shuffle(ops);
+
+  if (ownedIdx === 2) {
+    for (const op of opsShuffled) {
+      let a = aFixed, b = bFixed, c = null;
+      if (op === '+') {
+        if (a === null && b === null) { a = randInt(seedLo, seedHi); b = randInt(seedLo, seedHi); }
+        else if (a === null) { a = randInt(addLo, addHi); }
+        else if (b === null) { b = randInt(addLo, addHi); }
+        c = a + b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '-') {
+        if (a === null && b === null) {
+          a = randInt(Math.max(seedLo, lo + addLo), seedHi);
+          const bHi = Math.min(addHi, a - lo);
+          if (bHi < addLo) continue;
+          b = randInt(addLo, bHi);
+        } else if (a === null) {
+          const aLo = Math.max(seedLo, b + lo);
+          const aHi = b + hi;
+          if (aLo > aHi) continue;
+          a = randInt(aLo, Math.min(aHi, seedHi + hi));
+        } else if (b === null) {
+          const bHi = Math.min(addHi, a - lo);
+          if (bHi < addLo) continue;
+          b = randInt(addLo, bHi);
+        }
+        c = a - b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '\u00d7') {
+        if (a === null && b === null) { a = randInt(factorLo, factorHi); b = randInt(factorLo, factorHi); }
+        else if (a === null) { a = randInt(factorLo, factorHi); }
+        else if (b === null) { b = randInt(factorLo, factorHi); }
+        c = a * b;
+        if (c < lo || c > hi) continue;
+      } else if (op === '\u00f7') {
+        if (a === null && b === null) {
+          b = randInt(factorLo, factorHi);
+          const q = randInt(factorLo, factorHi);
+          a = b * q;
+          c = q;
+        } else if (a === null) {
+          const q = randInt(factorLo, factorHi);
+          a = b * q;
+          c = q;
+        } else if (b === null) {
+          const divs = divisorsOf(a, factorLo, Math.min(factorHi, a));
+          if (divs.length === 0) continue;
+          b = choice(divs);
+          c = a / b;
+        }
+        if (a === 0 || c === null || c < lo || c > hi || a > hi) continue;
+      }
+      if (a === null || b === null || c === null) continue;
+      if (a < lo || a > Math.max(hi, seedHi) ) continue;
+      if (b < lo) continue;
+      return { a, b, c, op };
+    }
+    return null;
+  }
+
+  if (ownedIdx === 1) {
+    const a = aFixed, c = cFixed;
+    for (const op of opsShuffled) {
+      let b = null;
+      if (op === '+') { b = c - a; }
+      else if (op === '-') { b = a - c; }
+      else if (op === '\u00d7') { if (a !== 0 && c % a === 0) b = c / a; }
+      else if (op === '\u00f7') { if (c !== 0 && a % c === 0) b = a / c; }
+      if (b === null || b < 1 || b > hi) continue;
+      return { a, b, c, op };
+    }
+    return null;
+  }
+  return null;
+}
+
+function tryBuild(cfg) {
+  const values = {};
+  const ops = {};
+  const owned = new Set();
+  let ok = true;
+
+  function processRun(cells, ownedIdx) {
+    if (!ok) return;
+    const [A, opc, B, eqc, C] = cells;
+    ops[key(...eqc)] = '=';
+    const kA = key(...A), kB = key(...B), kC = key(...C);
+    const aFixed = (kA in values) ? values[kA] : null;
+    const bFixed = (kB in values) ? values[kB] : null;
+    const cFixed = (kC in values) ? values[kC] : null;
+    const res = attemptRun(ownedIdx, aFixed, bFixed, cFixed, cfg);
+    if (!res) { ok = false; return; }
+    values[kA] = res.a; values[kB] = res.b; values[kC] = res.c;
+    ops[key(...opc)] = res.op;
+    if (ownedIdx === 2) owned.add(kC);
+    else owned.add(kB);
+  }
+
+  const row = 0;
+  const top = [[row,3],[row,4],[row,5],[row,6],[row,7]];
+  processRun(top, 2);
+  if (!ok) return null;
+  let lanes = [3, 7];
+  let curRow = 0;
+
+  for (let t = 0; t < cfg.tiers; t++) {
+    const nextRow = curRow + 4;
+    for (const col of lanes) {
+      const vcells = [[curRow,col],[curRow+1,col],[curRow+2,col],[curRow+3,col],[nextRow,col]];
+      processRun(vcells, 2);
+      if (!ok) return null;
+    }
+    let curA = lanes[0] - 2;
+    const newLanes = [curA];
+    for (const lc of lanes) {
+      const cells = [[nextRow,curA],[nextRow,curA+1],[nextRow,lc],[nextRow,lc+1],[nextRow,lc+2]];
+      processRun(cells, 2);
+      if (!ok) return null;
+      curA = lc + 2;
+      newLanes.push(curA);
+    }
+    lanes = newLanes;
+    curRow = nextRow;
+  }
+
+  const nextRow = curRow + 4;
+  for (const col of lanes) {
+    const vcells = [[curRow,col],[curRow+1,col],[curRow+2,col],[curRow+3,col],[nextRow,col]];
+    processRun(vcells, 2);
+    if (!ok) return null;
+  }
+  for (let i = 0; i < lanes.length - 1; i++) {
+    const aCol = lanes[i], cCol = lanes[i+1];
+    const cells = [[nextRow,aCol],[nextRow,aCol+1],[nextRow,aCol+2],[nextRow,aCol+3],[nextRow,cCol]];
+    processRun(cells, 1);
+    if (!ok) return null;
+  }
+
+  return { values, ops, owned };
+}
+
+function finalizeGrid(values, ops, owned, transpose) {
+  const coordsSet = new Set([...Object.keys(values), ...Object.keys(ops)]);
+  const parse = (k) => k.split(',').map(Number);
+  let pts = [...coordsSet].map(parse);
+  const tf = ([r,c]) => transpose ? [c,r] : [r,c];
+  pts = pts.map(tf);
+
+  const newValues = {}, newOps = {}, newOwned = new Set();
+  for (const k in values) { const [r,c] = tf(parse(k)); newValues[key(r,c)] = values[k]; }
+  for (const k in ops) { const [r,c] = tf(parse(k)); newOps[key(r,c)] = ops[k]; }
+  owned.forEach(k => { const [r,c] = tf(parse(k)); newOwned.add(key(r,c)); });
+
+  const minR = Math.min(...pts.map(p=>p[0])), maxR = Math.max(...pts.map(p=>p[0]));
+  const minC = Math.min(...pts.map(p=>p[1])), maxC = Math.max(...pts.map(p=>p[1]));
+  const rows = maxR - minR + 1, cols = maxC - minC + 1;
+
+  const grid = Array.from({length: rows}, () => Array.from({length: cols}, () => ({type:'empty'})));
+  for (const k in newValues) {
+    const [r,c] = parse(k);
+    const rr = r - minR, cc = c - minC;
+    grid[rr][cc] = { type: newOwned.has(k) ? 'blank' : 'given', val: newValues[k] };
+  }
+  for (const k in newOps) {
+    const [r,c] = parse(k);
+    const rr = r - minR, cc = c - minC;
+    grid[rr][cc] = { type: 'op', val: newOps[k] };
+  }
+
+  let li = 0;
+  const answers = [];
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell.type === 'blank') {
+        cell.label = LETTERS[li];
+        answers.push([LETTERS[li], cell.val]);
+        li++;
+      }
+    }
+  }
+  return { grid, answers };
+}
+
+function opResult(a, op, b) {
+  if (op === '+') return a + b;
+  if (op === '-') return a - b;
+  if (op === '\u00d7') return a * b;
+  if (op === '\u00f7') return a / b;
+  return null;
+}
+
+function verifyGrid(grid) {
+  const rows = grid.length, cols = grid[0].length;
+  const isVal = (cell) => cell.type === 'given' || cell.type === 'blank';
+  let ok = true;
+  const checkLine = (cells) => {
+    if (isVal(cells[0]) && cells[1].type === 'op' && '+-\u00d7\u00f7'.includes(cells[1].val)
+        && isVal(cells[2]) && cells[3].type === 'op' && cells[3].val === '='
+        && isVal(cells[4])) {
+      if (opResult(cells[0].val, cells[1].val, cells[2].val) !== cells[4].val) ok = false;
+    }
+  };
+  for (let r=0;r<rows;r++) for (let c=0;c+4<cols;c++)
+    checkLine([grid[r][c],grid[r][c+1],grid[r][c+2],grid[r][c+3],grid[r][c+4]]);
+  for (let c=0;c<cols;c++) for (let r=0;r+4<rows;r++)
+    checkLine([grid[r][c],grid[r+1][c],grid[r+2][c],grid[r+3][c],grid[r+4][c]]);
+  return ok;
+}
+
+function generatePuzzle(mode, levelKey) {
+  const cfg = LEVELS[mode][levelKey];
+  const transpose = Math.random() < 0.35;
+  for (let attempt = 0; attempt < 800; attempt++) {
+    const built = tryBuild(cfg);
+    if (!built) continue;
+    const { grid, answers } = finalizeGrid(built.values, built.ops, built.owned, transpose);
+    if (verifyGrid(grid)) return { grid, answers };
+  }
+  throw new Error('Could not generate a puzzle — try again.');
+}
+
+function renderGrid(grid) {
+  const gridEl = document.getElementById('grid');
+  const rows = grid.length, cols = grid[0].length;
+  const availW = 7.2, availH = 8.6, maxCell = 0.9;
+  const size = Math.min(availW / cols, availH / rows, maxCell);
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${size}in)`;
+  gridEl.style.gridTemplateRows = `repeat(${rows}, ${size}in)`;
+  gridEl.innerHTML = '';
+  for (const row of grid) {
+    for (const cell of row) {
+      const div = document.createElement('div');
+      div.style.fontSize = (size * 0.40) + 'in';
+      if (cell.type === 'empty') { div.className = 'cell empty'; }
+      else if (cell.type === 'given') { div.className = 'cell given'; div.textContent = cell.val; }
+      else if (cell.type === 'op') { div.className = 'cell op'; div.textContent = cell.val; }
+      else if (cell.type === 'blank') {
+        div.className = 'cell blank';
+        const lab = document.createElement('span');
+        lab.className = 'label'; lab.textContent = cell.label;
+        div.appendChild(lab);
+      }
+      gridEl.appendChild(div);
+    }
+  }
+}
+
+function newPuzzle() {
+  puzzleCount++;
+  const { grid, answers } = generatePuzzle(currentMode, currentLevel);
+  renderGrid(grid);
+  const label = document.getElementById('puzzleLabel');
+  label.textContent = `Puzzle #${puzzleCount} · ${LEVEL_LABELS[currentLevel]} · ${MODE_LABELS[currentMode]}`;
+  label.className = 'sheet-puzzle ' + currentMode;
+  document.getElementById('instructions').textContent = MODE_INSTRUCTIONS[currentMode];
+  const ansEl = document.getElementById('answerKey');
+  ansEl.innerHTML = answers.map(([l,v]) => `${l}=${v}`).join('   ');
+  ansEl.style.display = 'none';
+  document.getElementById('answerBtn').textContent = 'Show answer key (for grown-ups)';
+}
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    currentLevel = 'easy';
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.diff-btn[data-level="easy"]').classList.add('active');
+    puzzleCount = 0;
+    newPuzzle();
+  });
+});
+document.querySelector('.mode-btn[data-mode="addsub"]').classList.add('active');
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+    puzzleCount = 0;
+    newPuzzle();
+  });
+});
+document.querySelector('.diff-btn[data-level="easy"]').classList.add('active');
+
+document.getElementById('newBtn').addEventListener('click', newPuzzle);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+document.getElementById('answerBtn').addEventListener('click', () => {
+  const ansEl = document.getElementById('answerKey');
+  const showing = ansEl.style.display === 'block';
+  ansEl.style.display = showing ? 'none' : 'block';
+  document.getElementById('answerBtn').textContent =
+    showing ? 'Show answer key (for grown-ups)' : 'Hide answer key';
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'n' || e.key === 'N' || e.code === 'Space') {
+    e.preventDefault();
+    newPuzzle();
+  }
+});
+
+newPuzzle();
+</script>
+</body>
+</html>
